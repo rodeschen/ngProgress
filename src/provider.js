@@ -34,7 +34,7 @@ angular.module('ngProgress.provider', ['ngProgress.directive'])
                 progressbarEl.eq(0).children().css('color', color);
             }
             // The ID for the interval controlling start()
-            var intervalCounterId = 0;
+            var intervalCounterId = -1;
             return {
                 // Starts the animation and adds between 0 - 5 percent to loading
                 // each 400 milliseconds. Should always be finished with progressbar.complete()
@@ -44,17 +44,22 @@ angular.module('ngProgress.provider', ['ngProgress.directive'])
                     // https://developer.mozilla.org/en-US/docs/Web/API/window.requestAnimationFrame
                     this.show();
                     var self = this;
-                    intervalCounterId = setInterval(function () {
-                        if (isNaN(count)) {
-                            clearInterval(intervalCounterId);
-                            count = 0;
-                            self.hide();
-                        } else {
-                            var remaining = 100 - count;
-                            count = count + (0.15 * Math.pow(1 - Math.sqrt(remaining), 2));
-                            self.updateCount(count);
-                        }
-                    }, 200);
+                    if (intervalCounterId === -1) {
+                        intervalCounterId = setInterval(function () {
+                            if (isNaN(count)) {
+                                clearInterval(intervalCounterId);
+                                count = 0;
+                                self.hide();
+                            } else {
+                                var remaining = 100 - count;
+                                count = count + (0.15 * Math.pow(1 - Math.sqrt(remaining), 2));
+                                self.updateCount(count);
+                            }
+                        }, 200);
+                    } else {
+                        count = count > 0 ? Math.floor(count / 2) : 0;
+                        self.updateCount(count);
+                    }
                 },
                 updateCount: function (new_count) {
                     $scope.count = new_count;
