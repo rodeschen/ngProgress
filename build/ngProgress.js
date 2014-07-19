@@ -1,9 +1,9 @@
 /*
-ngProgress 1.0.3 - slim, site-wide progressbar for AngularJS 
+ngProgress 1.0.4 - slim, site-wide progressbar for AngularJS 
 (C) 2013 - Victor Bjelkholm 
 License: MIT 
 Source: https://github.com/VictorBjelkholm/ngProgress 
-Date Compiled: 2013-09-13 
+Date Compiled: 2014-07-19 
 */
 angular.module('ngProgress.provider', ['ngProgress.directive'])
     .provider('ngProgress', function () {
@@ -23,7 +23,8 @@ angular.module('ngProgress.provider', ['ngProgress.directive'])
                 height = this.height,
                 color = this.color,
                 $scope = $rootScope,
-                $body = $document.find('body');
+                $body = $document.find('body'),
+                completeTimeout = $timeout(function(){},0);
 
             // Compile the directive
             var progressbarEl = $compile('<ng-progress></ng-progress>')($scope);
@@ -40,7 +41,7 @@ angular.module('ngProgress.provider', ['ngProgress.directive'])
                 progressbarEl.eq(0).children().css('color', color);
             }
             // The ID for the interval controlling start()
-            var intervalCounterId = 0;
+            var intervalCounterId = -1;
             return {
                 // Starts the animation and adds between 0 - 5 percent to loading
                 // each 400 milliseconds. Should always be finished with progressbar.complete()
@@ -50,17 +51,24 @@ angular.module('ngProgress.provider', ['ngProgress.directive'])
                     // https://developer.mozilla.org/en-US/docs/Web/API/window.requestAnimationFrame
                     this.show();
                     var self = this;
-                    intervalCounterId = setInterval(function () {
-                        if (isNaN(count)) {
-                            clearInterval(intervalCounterId);
-                            count = 0;
-                            self.hide();
-                        } else {
-                            var remaining = 100 - count;
-                            count = count + (0.15 * Math.pow(1 - Math.sqrt(remaining), 2));
-                            self.updateCount(count);
-                        }
-                    }, 200);
+                    $timeout.cancel(completeTimeout);
+                    if (intervalCounterId === -1) {
+                        if(count == 100)count = 0;
+                        intervalCounterId = setInterval(function () {
+                            if (isNaN(count)) {
+                                clearInterval(intervalCounterId);
+                                count = 0;
+                                self.hide();
+                            } else {
+                                var remaining = 100 - count;
+                                count = count + (0.15 * Math.pow(1 - Math.sqrt(remaining), 2));
+                                self.updateCount(count);
+                            }
+                        }, 50);
+                    } else {
+                        count = count > 0 ? Math.floor(count / 2) : 0;
+                        self.updateCount(count);
+                    }
                 },
                 updateCount: function (new_count) {
                     $scope.count = new_count;
@@ -114,6 +122,7 @@ angular.module('ngProgress.provider', ['ngProgress.directive'])
                 // Stops the progressbar at it's current location
                 stop: function () {
                     clearInterval(intervalCounterId);
+                    intervalCounterId = -1;
                 },
                 // Set's the progressbar percentage. Use a number between 0 - 100. 
                 // If 100 is provided, complete will be called.
@@ -131,22 +140,23 @@ angular.module('ngProgress.provider', ['ngProgress.directive'])
                 // it's rollbacked
                 reset: function () {
                     clearInterval(intervalCounterId);
-                    count = 0;
-                    this.updateCount(count);
+                    //count = 0;
+                    intervalCounterId = -1;
+                    //this.updateCount(count);
                     return 0;
                 },
                 // Jumps to 100% progress and fades away progressbar.
                 complete: function () {
-                    count = 100;
-                    this.updateCount(count);
                     var self = this;
-                    $timeout(function () {
-                        self.hide();
+                    completeTimeout = $timeout(function () {
+                        self.updateCount(100);
                         $timeout(function () {
-                            count = 0;
-                            self.updateCount(count);
-                        }, 500);
-                    }, 1000);
+                            self.hide();
+                            //$timeout(function(){
+                            self.reset();
+                            //},200)
+                        }, 200);
+                    }, 50);
                     return count;
                 }
             };
